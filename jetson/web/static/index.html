@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Omikuji Dashboard</title>
+    <style>
+      :root {
+        --bg: #0f172a;
+        --panel: #111827;
+        --line: #334155;
+        --text: #e5e7eb;
+        --accent: #f59e0b;
+      }
+
+      body {
+        margin: 0;
+        font-family: "Helvetica Neue", sans-serif;
+        background: radial-gradient(circle at top, #1e293b, var(--bg));
+        color: var(--text);
+      }
+
+      main {
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 40px 20px 80px;
+      }
+
+      h1 {
+        letter-spacing: 0.08em;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 16px;
+      }
+
+      .card {
+        background: rgba(17, 24, 39, 0.88);
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        padding: 20px;
+      }
+
+      .meter {
+        height: 10px;
+        background: #1f2937;
+        border-radius: 999px;
+        overflow: hidden;
+      }
+
+      .meter span {
+        display: block;
+        height: 100%;
+        width: 42%;
+        background: linear-gradient(90deg, #fb7185, var(--accent));
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>OMIKUJI DASHBOARD</h1>
+      <div class="grid">
+        <section class="card">
+          <h2>Audio Energy</h2>
+          <div class="meter"><span></span></div>
+        </section>
+        <section class="card">
+          <h2>Movement</h2>
+          <div class="meter"><span style="width: 55%"></span></div>
+        </section>
+        <section class="card">
+          <h2>State</h2>
+          <p>energetic</p>
+        </section>
+      </div>
+    </main>
+  </body>
+</html>
