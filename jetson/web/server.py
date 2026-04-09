@@ -35,6 +35,8 @@ def create_app(store):
                 "state": {},
                 "ai": {},
                 "session": {},
+                "session_archive": {},
+                "local_model": {},
                 "printer": {},
                 "history": [],
             }

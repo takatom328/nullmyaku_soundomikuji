@@ -199,6 +199,8 @@
             <span class="chip" id="printer-transport">printer: --</span>
             <span class="chip" id="imu-status">imu: --</span>
             <span class="chip" id="session-status">session: --</span>
+            <span class="chip" id="model-status">model: --</span>
+            <span class="chip" id="archive-status">archive: --</span>
           </div>
         </div>
         <div class="hero-panel">
@@ -273,8 +275,10 @@
             <div class="meta-row"><span>Motion Pattern</span><strong id="motion-pattern">--</strong></div>
             <div class="meta-row"><span>Interaction</span><strong id="interaction-mode">--</strong></div>
             <div class="meta-row"><span>State Source</span><strong id="state-source">--</strong></div>
+            <div class="meta-row"><span>Embed Source</span><strong id="embed-source">--</strong></div>
             <div class="meta-row"><span>Embed Confidence</span><strong id="embed-confidence">0.0000</strong></div>
             <div class="meta-row"><span>AI Provider</span><strong id="ai-provider">--</strong></div>
+            <div class="meta-row"><span>Archive File</span><strong id="archive-file">--</strong></div>
             <div class="meta-row"><span>Printer Job</span><strong id="job-id">--</strong></div>
           </div>
         </section>
@@ -334,6 +338,8 @@
         const state = data.state || {};
         const ai = data.ai || {};
         const session = data.session || {};
+        const sessionArchive = data.session_archive || {};
+        const localModel = data.local_model || {};
         const printer = data.printer || {};
         const imuInput = data.imu_input || {};
         const history = data.history || [];
@@ -344,6 +350,7 @@
         } else if (session.last_completed?.stop_reason) {
           sessionLabel = `session: last ${String(session.last_completed.stop_reason)}`;
         }
+        const archiveLabel = `archive: ${sessionArchive.enabled ? "on" : "off"} / ${sessionArchive.saved_count || 0}`;
 
         setText("state-name", (state.state || "--").toUpperCase());
         setText("state-caption", `energy ${state.energy ?? 0} / brightness ${state.brightness ?? 0}`);
@@ -355,6 +362,11 @@
           `imu: ${imuInput.transport || "--"} / frames ${imuInput.frames_received || 0}`
         );
         setText("session-status", sessionLabel);
+        setText(
+          "model-status",
+          `model: ${localModel.backend || "--"} / ${localModel.enabled ? "on" : "off"}`
+        );
+        setText("archive-status", archiveLabel);
 
         setText("rms-value", Number(audio.rms || 0).toFixed(4));
         setText("centroid-value", `${Number(audio.spectral_centroid || 0).toFixed(2)} Hz`);
@@ -374,8 +386,12 @@
         setText("motion-pattern", String(state.motion_pattern || "--"));
         setText("interaction-mode", String(state.interaction_mode || "--"));
         setText("state-source", String(state.state_source || "rules"));
+        setText("embed-source", String(state.embedded_state_source || "--"));
         setText("embed-confidence", Number(state.embedded_state_confidence || 0).toFixed(4));
         setText("ai-provider", String(ai.provider || "--"));
+        const lastArchivePath = String(sessionArchive.last_saved_path || "");
+        const archiveFile = lastArchivePath ? lastArchivePath.split("/").pop() : "--";
+        setText("archive-file", archiveFile);
         setText("job-id", printer.job_id || "--");
         setText("ticket-text", printer.ticket_text || "waiting for print job");
 

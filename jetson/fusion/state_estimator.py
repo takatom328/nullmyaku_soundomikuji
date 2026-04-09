@@ -39,6 +39,8 @@ def _label_interaction_mode(audio_motion_sync, movement_intensity, rhythm_stabil
 def estimate_state(
     audio_features,
     imu_features,
+    model_runner=None,
+    confidence_threshold=0.64,
 ):
     rms = float(audio_features.get("rms", 0.0))
     centroid = float(audio_features.get("spectral_centroid", 0.0))
@@ -108,11 +110,23 @@ def estimate_state(
     audio_embedding = build_audio_embedding(audio_features)
     imu_embedding = build_imu_embedding(imu_features)
     fusion_embedding = fuse_embeddings(audio_embedding, imu_embedding)
-    embedded_state, embedded_confidence, embedded_scores = classify_fused_embedding(
-        fusion_embedding
-    )
+    runner_result = None
+    if model_runner is not None:
+        runner_result = model_runner.classify(fusion_embedding)
+
+    if runner_result is not None:
+        embedded_state = runner_result["state"]
+        embedded_confidence = float(runner_result["confidence"])
+        embedded_scores = runner_result["scores"]
+        embedded_source = runner_result.get("source", "onnx")
+    else:
+        embedded_state, embedded_confidence, embedded_scores = classify_fused_embedding(
+            fusion_embedding
+        )
+        embedded_source = "prototype"
+
     state_source = "rules"
-    if embedded_confidence >= 0.64:
+    if embedded_confidence >= float(confidence_threshold):
         state = embedded_state
         state_source = "embedding"
 
@@ -135,6 +149,7 @@ def estimate_state(
         "embedded_state": embedded_state,
         "embedded_state_confidence": round(embedded_confidence, 4),
         "embedded_state_scores": embedded_scores,
+        "embedded_state_source": embedded_source,
         "state_source": state_source,
         "audio_embedding": [round(value, 4) for value in audio_embedding],
         "imu_embedding": [round(value, 4) for value in imu_embedding],

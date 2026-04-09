@@ -103,6 +103,28 @@ export APP_DOTENV_PATH=/path/to/your.env
 python3 -m jetson.main
 ```
 
+## Local Model Backend
+
+状態推定は `LOCAL_MODEL_BACKEND` で切替できます。
+
+- `prototype`（デフォルト）: 現在の埋め込みプロトタイプ分類
+- `onnx`: ローカルONNXモデルで分類（失敗時は prototype に自動フォールバック）
+
+```bash
+export LOCAL_MODEL_BACKEND=prototype
+export LOCAL_MODEL_CONFIDENCE_THRESHOLD=0.64
+```
+
+ONNXを使う場合:
+
+```bash
+export LOCAL_MODEL_BACKEND=onnx
+export LOCAL_MODEL_PATH=/home/jetson/project/null2myakumyaku/models/state_classifier.onnx
+export LOCAL_MODEL_LABELS=energetic,delicate,focused,resonant,open,unstable
+```
+
+Dashboard の `model:` チップと `Embed Source` に、`prototype` / `onnx` が表示されます。
+
 ## Session Control (Start / Stop)
 
 M5Stack の `event=start/stop` を使って、Jetson 側でセッション単位に集約します。
@@ -118,9 +140,13 @@ export SESSION_REQUIRE_START_EVENT=1
 export SESSION_AUTO_STOP_SEC=10
 export SESSION_MIN_DURATION_SEC=1.0
 export SESSION_COOLDOWN_SEC=0.8
+export SESSION_ARCHIVE_ENABLED=1
+export SESSION_ARCHIVE_DIR=sessions
+export SESSION_ARCHIVE_PRETTY=0
 ```
 
 `SESSION_REQUIRE_START_EVENT=0` にすると、常時セッション（自動開始）モードになります。
+セッション完了時は `SESSION_ARCHIVE_DIR` に JSON ログが保存されます。
 
 ## IMU (M5Stack -> Jetson)
 

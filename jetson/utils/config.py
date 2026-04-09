@@ -118,6 +118,17 @@ class SessionConfig:
     min_duration_sec: float = 1.0
     cooldown_sec: float = 0.8
     max_frames: int = 1200
+    archive_enabled: bool = True
+    archive_dir: str = "sessions"
+    archive_pretty: bool = False
+
+
+@dataclass(frozen=True)
+class LocalModelConfig:
+    backend: str = "prototype"
+    model_path: str = ""
+    labels: str = "energetic,delicate,focused,resonant,open,unstable"
+    confidence_threshold: float = 0.64
 
 
 @dataclass(frozen=True)
@@ -126,6 +137,7 @@ class AppConfig:
     imu: IMUConfig
     ai: AIConfig
     session: SessionConfig
+    local_model: LocalModelConfig
     printer: PrinterConfig
     web: "WebConfig"
 
@@ -167,6 +179,20 @@ class AppConfig:
                 min_duration_sec=float(os.getenv("SESSION_MIN_DURATION_SEC", "1.0")),
                 cooldown_sec=float(os.getenv("SESSION_COOLDOWN_SEC", "0.8")),
                 max_frames=int(os.getenv("SESSION_MAX_FRAMES", "1200")),
+                archive_enabled=os.getenv("SESSION_ARCHIVE_ENABLED", "1") != "0",
+                archive_dir=os.getenv("SESSION_ARCHIVE_DIR", "sessions"),
+                archive_pretty=os.getenv("SESSION_ARCHIVE_PRETTY", "0") == "1",
+            ),
+            local_model=LocalModelConfig(
+                backend=os.getenv("LOCAL_MODEL_BACKEND", "prototype"),
+                model_path=os.getenv("LOCAL_MODEL_PATH", ""),
+                labels=os.getenv(
+                    "LOCAL_MODEL_LABELS",
+                    "energetic,delicate,focused,resonant,open,unstable",
+                ),
+                confidence_threshold=float(
+                    os.getenv("LOCAL_MODEL_CONFIDENCE_THRESHOLD", "0.64")
+                ),
             ),
             printer=PrinterConfig(
                 transport=os.getenv("PRINTER_TRANSPORT", "stdout"),
