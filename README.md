@@ -125,6 +125,23 @@ export LOCAL_MODEL_LABELS=energetic,delicate,focused,resonant,open,unstable
 
 Dashboard の `model:` チップと `Embed Source` に、`prototype` / `onnx` が表示されます。
 
+## Build Dataset from Sessions
+
+セッション保存ファイル（`sessions/*.json`）から、ローカルモデル学習用データを作れます。
+
+```bash
+python3 tools/build_local_model_dataset.py \
+  --input-dir sessions \
+  --output-dir training
+```
+
+出力:
+
+- `training/session_dataset.jsonl`
+- `training/labels_template.csv`
+
+`labels_template.csv` の `manual_label` を埋めて、次の学習ステップへ使います。
+
 ## Session Control (Start / Stop)
 
 M5Stack の `event=start/stop` を使って、Jetson 側でセッション単位に集約します。
