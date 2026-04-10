@@ -47,6 +47,15 @@ float lastAy = 0.0f;
 float lastAz = 1.0f;
 float lastAccNorm = 0.0f;
 
+enum UiState {
+  UI_WAITING = 0,
+  UI_MEASURING = 1,
+  UI_DONE = 2,
+};
+
+UiState uiState = UI_WAITING;
+uint32_t doneStateStartMs = 0;
+
 String trimCopy(const String& src) {
   String s = src;
   s.trim();
@@ -170,6 +179,26 @@ void drawImuGraph() {
   M5.Lcd.printf("|a|:%0.3f", lastAccNorm);
 }
 
+const char* uiStateLabel() {
+  if (uiState == UI_MEASURING) {
+    return "MEASURING";
+  }
+  if (uiState == UI_DONE) {
+    return "DONE";
+  }
+  return "WAITING";
+}
+
+uint16_t uiStateColor() {
+  if (uiState == UI_MEASURING) {
+    return RED;
+  }
+  if (uiState == UI_DONE) {
+    return CYAN;
+  }
+  return WHITE;
+}
+
 void drawStatus() {
   const uint32_t now = millis();
   if (now - lastUiMs < 300) {
@@ -182,9 +211,12 @@ void drawStatus() {
   M5.Lcd.setTextSize(2);
   M5.Lcd.setCursor(8, 8);
   M5.Lcd.println("M5 IMU Sender");
+  M5.Lcd.fillCircle(146, 22, 9, uiStateColor());
+  M5.Lcd.drawCircle(146, 22, 9, DARKGREY);
 
   M5.Lcd.setTextSize(1);
   M5.Lcd.setCursor(8, 44);
+  M5.Lcd.printf("State: %s\n", uiStateLabel());
   M5.Lcd.printf("WiFi: %s\n", WiFi.status() == WL_CONNECTED ? "CONNECTED" : "DISCONNECTED");
   M5.Lcd.printf("Local IP: %s\n", WiFi.status() == WL_CONNECTED ? WiFi.localIP().toString().c_str() : "-");
   M5.Lcd.printf("Target : %s:%u\n", jetsonIp, jetsonPort);
@@ -255,9 +287,13 @@ void setup() {
 
 void loop() {
   M5.update();
+  const uint32_t now = millis();
+
+  if (uiState == UI_DONE && (now - doneStateStartMs) >= 5000) {
+    uiState = UI_WAITING;
+  }
 
   if (WiFi.status() != WL_CONNECTED) {
-    uint32_t now = millis();
     if (now - lastReconnectMs > 2000) {
       WiFi.disconnect();
       WiFi.begin(wifiSsid, wifiPass);
@@ -268,13 +304,15 @@ void loop() {
     return;
   }
 
-  const uint32_t now = millis();
   if (now - lastSendMs >= sendIntervalMs) {
     const char* eventLabel = "none";
     if (M5.BtnA.wasPressed()) {
       eventLabel = "start";
+      uiState = UI_MEASURING;
     } else if (M5.BtnB.wasPressed()) {
       eventLabel = "stop";
+      uiState = UI_DONE;
+      doneStateStartMs = now;
     }
 
     lastEvent = String(eventLabel);

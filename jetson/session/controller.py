@@ -15,9 +15,10 @@ def _round_if_number(value):
     return value
 
 
-def _aggregate_dicts(dicts):
+def _aggregate_dicts(dicts, max_keys=None):
     if not dicts:
         return {}
+    max_keys = set(max_keys or [])
 
     keys = set()
     for item in dicts:
@@ -30,7 +31,10 @@ def _aggregate_dicts(dicts):
             continue
 
         if all(_is_number(value) for value in values):
-            aggregated[key] = _round_if_number(sum(values) / len(values))
+            if key in max_keys:
+                aggregated[key] = _round_if_number(max(values))
+            else:
+                aggregated[key] = _round_if_number(sum(values) / len(values))
             continue
 
         if all(isinstance(value, list) for value in values):
@@ -98,7 +102,10 @@ class SessionController:
         imu_dicts = [frame["imu_features"] for frame in frames]
         state_dicts = [frame["state"] for frame in frames]
 
-        audio_features = _aggregate_dicts(audio_dicts)
+        audio_features = _aggregate_dicts(
+            audio_dicts,
+            max_keys={"tempo_bpm"},
+        )
         imu_features = _aggregate_dicts(imu_dicts)
         state = _aggregate_dicts(state_dicts)
 

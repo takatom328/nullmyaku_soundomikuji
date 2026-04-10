@@ -1,4 +1,4 @@
-from time import sleep
+from time import sleep, time
 
 from .ai.client import AIClient
 from .audio.features import compute_audio_features
@@ -75,7 +75,9 @@ def main() -> None:
         audio_input.start()
         imu_receiver.start()
 
-        loop_interval_sec = max(config.web.sample_interval_sec, 0.1)
+        process_interval_sec = max(config.web.process_interval_sec, 0.03)
+        telemetry_interval_sec = max(config.web.sample_interval_sec, 0.05)
+        next_telemetry_at = 0.0
         if config.web.enabled:
             telemetry_store = TelemetryStore(history_size=config.web.history_size)
             start_server_in_background(telemetry_store, config.web)
@@ -101,14 +103,21 @@ def main() -> None:
             )
 
             if session_result is not None:
+                expo_recommendation = printer.create_expo_recommendation()
                 omikuji_text = ai_client.generate_omikuji(
                     audio_features=session_result["audio_features"],
                     imu_features=session_result["imu_features"],
                     state=session_result["state"],
                     transcript=None,
+                    expo_recommendation=expo_recommendation,
                 )
                 print_job = printer.build_print_job(
-                    session_result["state"]["state"], omikuji_text
+                    session_result["state"]["state"],
+                    omikuji_text,
+                    audio_features=session_result["audio_features"],
+                    imu_features=session_result["imu_features"],
+                    state_features=session_result["state"],
+                    expo_recommendation=expo_recommendation,
                 )
                 printer.dispatch_print_job(print_job)
                 printer_info = {
@@ -130,6 +139,7 @@ def main() -> None:
                         "state": session_result["state"],
                         "generated": {
                             "omikuji_text": omikuji_text,
+                            "expo_recommendation": expo_recommendation,
                             "ai": ai_client.status(),
                             "printer": {
                                 "job_id": print_job["job_id"],
@@ -161,10 +171,12 @@ def main() -> None:
             if session_result is not None:
                 snapshot["session_completed"] = session_result
 
-            if telemetry_store is not None:
+            now = time()
+            if telemetry_store is not None and now >= next_telemetry_at:
                 telemetry_store.update(snapshot)
+                next_telemetry_at = now + telemetry_interval_sec
 
-            sleep(loop_interval_sec)
+            sleep(process_interval_sec)
     except KeyboardInterrupt:
         logger.info("Stopping main loop")
     finally:

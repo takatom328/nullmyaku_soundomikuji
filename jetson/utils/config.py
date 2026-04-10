@@ -99,6 +99,11 @@ class AIConfig:
     base_url: str = "https://api.openai.com/v1"
     timeout_sec: float = 12.0
     fallback_enabled: bool = True
+    prompt_profile: str = "omikuji_v1"
+    narrative_context: str = "音と身体から未来を生成するおみくじ"
+    tone: str = "やわらかく詩的、ただし具体"
+    min_chars: int = 120
+    max_chars: int = 220
 
 
 @dataclass(frozen=True)
@@ -118,6 +123,7 @@ class PrinterConfig:
     cups_height_px: int = 1400
     cups_column_spacing: int = 8
     cups_layout: str = "horizontal"
+    cups_text_align: str = "center"
     qr_url: str = "https://www.yahoo.co.jp/"
     shrine_name: str = "ぬるみゃく神社"
 
@@ -182,6 +188,14 @@ class AppConfig:
                 base_url=os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"),
                 timeout_sec=float(os.getenv("AI_TIMEOUT_SEC", "12.0")),
                 fallback_enabled=os.getenv("AI_FALLBACK_ENABLED", "1") != "0",
+                prompt_profile=os.getenv("AI_PROMPT_PROFILE", "omikuji_v1"),
+                narrative_context=os.getenv(
+                    "AI_NARRATIVE_CONTEXT",
+                    "音と身体から未来を生成するおみくじ",
+                ),
+                tone=os.getenv("AI_TONE", "やわらかく詩的、ただし具体"),
+                min_chars=int(os.getenv("AI_MIN_CHARS", "120")),
+                max_chars=int(os.getenv("AI_MAX_CHARS", "220")),
             ),
             session=SessionConfig(
                 enabled=os.getenv("SESSION_ENABLED", "1") != "0",
@@ -227,6 +241,7 @@ class AppConfig:
                     os.getenv("PRINTER_CUPS_COLUMN_SPACING", "8")
                 ),
                 cups_layout=os.getenv("PRINTER_CUPS_LAYOUT", "horizontal"),
+                cups_text_align=os.getenv("PRINTER_CUPS_TEXT_ALIGN", "center"),
                 qr_url=os.getenv("PRINTER_QR_URL", "https://www.yahoo.co.jp/"),
                 shrine_name=os.getenv("PRINTER_SHRINE_NAME", "ぬるみゃく神社"),
             ),
@@ -235,6 +250,9 @@ class AppConfig:
                 host=os.getenv("WEB_DASHBOARD_HOST", "0.0.0.0"),
                 port=int(os.getenv("WEB_DASHBOARD_PORT", "5000")),
                 sample_interval_sec=float(os.getenv("WEB_SAMPLE_INTERVAL_SEC", "0.5")),
+                process_interval_sec=float(
+                    os.getenv("PIPELINE_PROCESS_INTERVAL_SEC", "0.1")
+                ),
                 history_size=int(os.getenv("WEB_HISTORY_SIZE", "120")),
             ),
         )
@@ -246,4 +264,5 @@ class WebConfig:
     host: str = "0.0.0.0"
     port: int = 5000
     sample_interval_sec: float = 0.5
+    process_interval_sec: float = 0.1
     history_size: int = 120

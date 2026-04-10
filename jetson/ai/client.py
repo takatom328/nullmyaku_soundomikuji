@@ -24,6 +24,7 @@ class AIClient:
         imu_features,
         state,
         transcript,
+        expo_recommendation=None,
     ):
         return {
             "model": self.config.model,
@@ -32,17 +33,22 @@ class AIClient:
             "imu_features": imu_features,
             "derived_state": state,
             "transcript": transcript,
+            "expo_recommendation": expo_recommendation or {},
         }
 
     def status(self):
         return dict(self._last_generation)
 
-    def _generate_local_omikuji(self, state):
+    def _generate_local_omikuji(self, state, expo_recommendation=None):
         current_state = state["state"]
         interaction_mode = state.get("interaction_mode", "listening")
         motion_pattern = state.get("motion_pattern", "swaying")
         voice_texture = state.get("voice_texture", "neutral")
         sync = float(state.get("audio_motion_sync", 0.0))
+        expo = expo_recommendation or {}
+        pavilion = str(expo.get("pavilion", "")).strip()
+        cuisine = str(expo.get("cuisine", "")).strip()
+        travel = str(expo.get("travel", "")).strip()
 
         if sync > 0.7:
             key_line = "声と身体が同じリズムを刻んでいます。"
@@ -51,25 +57,43 @@ class AIClient:
         else:
             key_line = "まずは身体のテンポを先に決めると道が開きます。"
 
+        expo_line = ""
+        if pavilion or cuisine or travel:
+            expo_line = "万博では {0}、食は {1}、次の旅先は {2} が今日の相性です。\n".format(
+                pavilion or "注目パビリオン",
+                cuisine or "おすすめ料理",
+                travel or "おすすめ旅先",
+            )
+
         return (
             f"あなたの今の状態は {current_state} です。\n"
             f"音の質感は {voice_texture}、動きは {motion_pattern}、対話モードは {interaction_mode}。\n"
             f"{key_line}\n"
+            f"{expo_line}"
             "迷いよりも、最初の一歩を信じてください。"
         )
 
     def _cloud_system_prompt(self):
+        min_chars = max(60, int(self.config.min_chars))
+        max_chars = max(min_chars, int(self.config.max_chars))
         return (
-            "あなたは展示作品『音と身体から未来を生成するおみくじ』の語り手です。\n"
+            "あなたは展示作品の語り手です。\n"
+            "作品コンテキスト: {0}\n"
             "入力された状態JSONから、来場者の今の気配を短く解釈し、紙に印刷される文面を作成してください。\n"
-            "文体は、やわらかく詩的だが曖昧すぎない日本語。\n"
+            "文体: {1}\n"
             "断定的な診断・医療/法律/投資助言・人格否定はしないこと。\n"
             "出力ルール:\n"
             "1) 3-4文のみ\n"
-            "2) 各文は短め（全体120-220文字目安）\n"
+            "2) 各文は短め（全体{2}-{3}文字目安）\n"
             "3) 最低1つ、行動しやすい具体表現を入れる\n"
             "4) 最終文は前向きな結びにする\n"
-            "5) プレーンテキストのみ（JSONや見出しは不要）"
+            "5) expo_recommendation がある場合、少なくとも1文で万博の楽しみ方として自然に取り入れる\n"
+            "6) プレーンテキストのみ（JSONや見出しは不要）"
+        ).format(
+            self.config.narrative_context,
+            self.config.tone,
+            min_chars,
+            max_chars,
         )
 
     def _cloud_style_guide(self):
@@ -78,7 +102,8 @@ class AIClient:
             "- 1文目: 現在の空気感を言語化\n"
             "- 2文目: 音と動きの関係を示す\n"
             "- 3文目: 今日の鍵となる小さな行動\n"
-            "- 4文目: 希望で締める（必要な場合のみ）"
+            "- 4文目: 希望で締める（必要な場合のみ）\n"
+            "- 抽象語だけで終わらず、手触りのある語を1つ入れる"
         )
 
     def _cloud_few_shot_examples(self):
@@ -153,22 +178,28 @@ class AIClient:
 
     def _build_cloud_request_body(self, payload):
         mode = payload.get("mode", "local")
+        derived_state = payload.get("derived_state", {})
         summary = {
             "project_context": {
-                "title": "音と身体から未来を生成するおみくじ",
+                "title": self.config.narrative_context,
                 "output_medium": "thermal_printer",
                 "audience": "展示来場者",
+                "prompt_profile": self.config.prompt_profile,
             },
-            "state": payload.get("derived_state", {}).get("state"),
-            "state_source": payload.get("derived_state", {}).get("state_source"),
-            "energy": payload.get("derived_state", {}).get("energy"),
-            "brightness": payload.get("derived_state", {}).get("brightness"),
-            "rhythm_stability": payload.get("derived_state", {}).get("rhythm_stability"),
-            "motion_drive": payload.get("derived_state", {}).get("motion_drive"),
-            "audio_motion_sync": payload.get("derived_state", {}).get("audio_motion_sync"),
+            "state": derived_state.get("state"),
+            "state_source": derived_state.get("state_source"),
+            "energy": derived_state.get("energy"),
+            "brightness": derived_state.get("brightness"),
+            "rhythm_stability": derived_state.get("rhythm_stability"),
+            "motion_drive": derived_state.get("motion_drive"),
+            "audio_motion_sync": derived_state.get("audio_motion_sync"),
+            "voice_texture": derived_state.get("voice_texture"),
+            "motion_pattern": derived_state.get("motion_pattern"),
+            "interaction_mode": derived_state.get("interaction_mode"),
             "audio_features": payload.get("audio_features"),
             "imu_features": payload.get("imu_features"),
             "transcript": payload.get("transcript"),
+            "expo_recommendation": payload.get("expo_recommendation"),
             "mode": mode,
         }
         return {
@@ -258,8 +289,15 @@ class AIClient:
         imu_features,
         state,
         transcript,
+        expo_recommendation=None,
     ) -> str:
-        payload = self.build_payload(audio_features, imu_features, state, transcript)
+        payload = self.build_payload(
+            audio_features,
+            imu_features,
+            state,
+            transcript,
+            expo_recommendation=expo_recommendation,
+        )
         mode = (self.config.mode or "local").lower()
         wants_cloud = mode in ("cloud", "hybrid")
 
@@ -278,7 +316,9 @@ class AIClient:
                 if mode == "cloud" and not self.config.fallback_enabled:
                     raise
 
-                text = self._generate_local_omikuji(state)
+                text = self._generate_local_omikuji(
+                    state, expo_recommendation=expo_recommendation
+                )
                 self._last_generation = {
                     "mode": mode,
                     "provider": "local",
@@ -287,7 +327,9 @@ class AIClient:
                 }
                 return text
 
-        text = self._generate_local_omikuji(state)
+        text = self._generate_local_omikuji(
+            state, expo_recommendation=expo_recommendation
+        )
         self._last_generation = {
             "mode": mode,
             "provider": "local",

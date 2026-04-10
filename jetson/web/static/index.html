@@ -263,8 +263,12 @@
         </section>
         <section class="card">
           <h2>Derived Metrics</h2>
-          <div class="meta-list">
+            <div class="meta-list">
             <div class="meta-row"><span>Onsets</span><strong id="onset-count">0</strong></div>
+            <div class="meta-row"><span>Onset Rate</span><strong id="onset-rate">0.000 Hz</strong></div>
+            <div class="meta-row"><span>Beat Strength</span><strong id="beat-strength">0.0000</strong></div>
+            <div class="meta-row"><span>Tempo Confidence</span><strong id="tempo-confidence">0.0000</strong></div>
+            <div class="meta-row"><span>Low Band Flux</span><strong id="low-band-flux">0.000000</strong></div>
             <div class="meta-row"><span>Zero Crossing Rate</span><strong id="zcr-value">0.0000</strong></div>
             <div class="meta-row"><span>Low / Mid / High</span><strong id="ratio-value">0 / 0 / 0</strong></div>
             <div class="meta-row"><span>IMU Samples</span><strong id="imu-samples">0</strong></div>
@@ -376,6 +380,10 @@
         setText("stability-value", Number(state.rhythm_stability || 0).toFixed(4));
         setText("sync-value", Number(state.audio_motion_sync || 0).toFixed(4));
         setText("onset-count", String(audio.onset_count || 0));
+        setText("onset-rate", `${Number(audio.onset_rate_hz || 0).toFixed(3)} Hz`);
+        setText("beat-strength", Number(audio.beat_strength || 0).toFixed(4));
+        setText("tempo-confidence", Number(audio.tempo_confidence || 0).toFixed(4));
+        setText("low-band-flux", Number(audio.low_band_flux || 0).toFixed(6));
         setText("zcr-value", Number(audio.zero_crossing_rate || 0).toFixed(4));
         setText("ratio-value", ratios.map((value) => Number(value).toFixed(2)).join(" / "));
         setText("imu-samples", String(imu.sample_count || 0));

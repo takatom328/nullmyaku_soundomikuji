@@ -45,6 +45,7 @@ def estimate_state(
     rms = float(audio_features.get("rms", 0.0))
     centroid = float(audio_features.get("spectral_centroid", 0.0))
     tempo = float(audio_features.get("tempo_bpm", 0.0))
+    tempo_confidence = float(audio_features.get("tempo_confidence", 0.0))
     onset_count = float(audio_features.get("onset_count", 0.0))
     zero_crossing_rate = float(audio_features.get("zero_crossing_rate", 0.0))
 
@@ -57,6 +58,7 @@ def estimate_state(
     energy = _clamp((rms * 1.8) + (movement * 0.7))
     brightness = _clamp(centroid / 4000.0)
     audio_rhythm_stability = _clamp(1.0 - abs(tempo - 96.0) / 96.0) if tempo > 0 else 0.0
+    audio_rhythm_stability *= _clamp(tempo_confidence if tempo_confidence > 0 else 0.3)
     if imu_rhythm_stability > 0 and audio_rhythm_stability > 0:
         rhythm_stability = _clamp((audio_rhythm_stability * 0.45) + (imu_rhythm_stability * 0.55))
     elif imu_rhythm_stability > 0:
@@ -136,6 +138,7 @@ def estimate_state(
         "rhythm_stability": round(rhythm_stability, 4),
         "movement_intensity": round(movement_intensity, 4),
         "audio_rhythm_stability": round(audio_rhythm_stability, 4),
+        "tempo_confidence": round(tempo_confidence, 4),
         "imu_rhythm_hz": round(imu_rhythm_hz, 4),
         "imu_rhythm_stability": round(imu_rhythm_stability, 4),
         "motion_drive": round(motion_drive, 4),
