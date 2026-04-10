@@ -1,0 +1,16 @@
+{"event": "serial_connected", "port": "/dev/ttyACM0", "ts": 1772459508}
+{"event": "rx", "sig": "41E0AE2B", "visit": 1, "tags": ["burst", "free", "snappy"], "myth": "local", "ts": 1772459518}
+{"event": "printed", "sig": "41E0AE2B", "visit": 1, "ts": 1772459519}
+{"event": "serial_read_error", "error": "device reports readiness to read but returned no data (device disconnected or multiple access on port?)", "ts": 1772460665}
+{"event": "serial_connect_failed", "error": "[Errno 2] could not open port /dev/ttyACM0: [Errno 2] No such file or directory: '/dev/ttyACM0'", "ts": 1772460666}
+{"event": "serial_connect_failed", "error": "[Errno 2] could not open port /dev/ttyACM0: [Errno 2] No such file or directory: '/dev/ttyACM0'", "ts": 1772460667}
+{"event": "serial_connect_failed", "error": "[Errno 2] could not open port /dev/ttyACM0: [Errno 2] No such file or directory: '/dev/ttyACM0'", "ts": 1772460668}
+{"event": "serial_connect_failed", "error": "[Errno 2] could not open port /dev/ttyACM0: [Errno 2] No such file or directory: '/dev/ttyACM0'", "ts": 1772460669}
+{"event": "serial_connect_failed", "error": "[Errno 2] could not open port /dev/ttyACM0: [Errno 2] No such file or directory: '/dev/ttyACM0'", "ts": 1772460670}
+{"event": "serial_connect_failed", "error": "[Errno 2] could not open port /dev/ttyACM0: [Errno 2] No such file or directory: '/dev/ttyACM0'", "ts": 1772460671}
+{"event": "serial_connect_failed", "error": "[Errno 2] could not open port /dev/ttyACM0: [Errno 2] No such file or directory: '/dev/ttyACM0'", "ts": 1772460672}
+{"event": "serial_connect_failed", "error": "[Errno 2] could not open port /dev/ttyACM0: [Errno 2] No such file or directory: '/dev/ttyACM0'", "ts": 1772460673}
+{"event": "serial_connect_failed", "error": "[Errno 2] could not open port /dev/ttyACM0: [Errno 2] No such file or directory: '/dev/ttyACM0'", "ts": 1772460674}
+{"event": "serial_connect_failed", "error": "[Errno 2] could not open port /dev/ttyACM0: [Errno 2] No such file or directory: '/dev/ttyACM0'", "ts": 1772460675}
+{"event": "serial_connect_failed", "error": "[Errno 2] could not open port /dev/ttyACM0: [Errno 2] No such file or directory: '/dev/ttyACM0'", "ts": 1772460676}
+{"event": "serial_connected", "port": "/dev/ttyACM0", "ts": 1772460677}

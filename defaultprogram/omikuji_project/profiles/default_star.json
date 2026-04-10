@@ -1,0 +1,38 @@
+{
+  "printer": "star",
+  "saved_at": "2026-02-23T22:28:52",
+  "lpoptions": {
+    "copies": "1",
+    "device-uri": "usb://Star/TSP143%20(STR_T-001)",
+    "finishings": "3",
+    "job-cancel-after": "10800",
+    "job-hold-until": "no-hold",
+    "job-priority": "50",
+    "job-sheets": "none,none",
+    "marker-change-time": "0",
+    "number-up": "1",
+    "print-color-mode": "monochrome",
+    "printer-commands": "none",
+    "printer-info": "star",
+    "printer-is-accepting-jobs": "true",
+    "printer-is-shared": "true",
+    "printer-is-temporary": "false",
+    "printer-make-and-model": "'Star",
+    "printer-state": "3",
+    "printer-state-change-time": "1771853074",
+    "printer-state-reasons": "none",
+    "printer-type": "53252",
+    "printer-uri-supported": "ipp://localhost/printers/star"
+  },
+  "print_defaults": {
+    "mode": "image",
+    "layout": "horizontal",
+    "orientation": "portrait",
+    "font_size": 30,
+    "width_px": 576,
+    "height_px": 1400,
+    "line_spacing": 4,
+    "column_spacing": 8,
+    "font_path": null
+  }
+}
