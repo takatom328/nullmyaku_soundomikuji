@@ -108,6 +108,18 @@ class PrinterConfig:
     timeout_sec: float = 5.0
     auth_token: str = ""
     source_device: str = "jetson-nano"
+    cups_printer: str = "star"
+    cups_mode: str = "text"
+    cups_orientation: str = "portrait"
+    cups_font_path: str = ""
+    cups_font_size: int = 30
+    cups_width_px: int = 576
+    cups_line_spacing: int = 4
+    cups_height_px: int = 1400
+    cups_column_spacing: int = 8
+    cups_layout: str = "horizontal"
+    qr_url: str = "https://www.yahoo.co.jp/"
+    shrine_name: str = "ぬるみゃく神社"
 
 
 @dataclass(frozen=True)
@@ -203,6 +215,20 @@ class AppConfig:
                 timeout_sec=float(os.getenv("PRINTER_TIMEOUT_SEC", "5.0")),
                 auth_token=os.getenv("PRINTER_AUTH_TOKEN", ""),
                 source_device=os.getenv("PRINTER_SOURCE_DEVICE", "jetson-nano"),
+                cups_printer=os.getenv("PRINTER_CUPS_PRINTER", "star"),
+                cups_mode=os.getenv("PRINTER_CUPS_MODE", "text"),
+                cups_orientation=os.getenv("PRINTER_CUPS_ORIENTATION", "portrait"),
+                cups_font_path=os.getenv("PRINTER_CUPS_FONT_PATH", ""),
+                cups_font_size=int(os.getenv("PRINTER_CUPS_FONT_SIZE", "30")),
+                cups_width_px=int(os.getenv("PRINTER_CUPS_WIDTH_PX", "576")),
+                cups_line_spacing=int(os.getenv("PRINTER_CUPS_LINE_SPACING", "4")),
+                cups_height_px=int(os.getenv("PRINTER_CUPS_HEIGHT_PX", "1400")),
+                cups_column_spacing=int(
+                    os.getenv("PRINTER_CUPS_COLUMN_SPACING", "8")
+                ),
+                cups_layout=os.getenv("PRINTER_CUPS_LAYOUT", "horizontal"),
+                qr_url=os.getenv("PRINTER_QR_URL", "https://www.yahoo.co.jp/"),
+                shrine_name=os.getenv("PRINTER_SHRINE_NAME", "ぬるみゃく神社"),
             ),
             web=WebConfig(
                 enabled=os.getenv("WEB_DASHBOARD_ENABLED", "0") == "1",

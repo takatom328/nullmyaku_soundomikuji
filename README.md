@@ -42,6 +42,52 @@ export PRINTER_AUTH_TOKEN=
 
 デフォルトでは `stdout` を使うので、ローカル開発中はネットワークなしでも確認できます。
 
+Jetson 直結のCUPS印刷を使う場合:
+
+```bash
+export PRINTER_TRANSPORT=cups
+export PRINTER_CUPS_PRINTER=star
+export PRINTER_CUPS_MODE=image        # text / image
+export PRINTER_CUPS_ORIENTATION=portrait
+export PRINTER_CUPS_LAYOUT=horizontal # horizontal / vertical
+export PRINTER_QR_URL=https://www.yahoo.co.jp/
+export PRINTER_SHRINE_NAME=ぬるみゃく神社
+```
+
+`image` モードを使う場合は Pillow（QRを使うなら qrcode も）を入れてください。
+
+```bash
+python3 -m pip install "Pillow<10" "qrcode<8"
+```
+
+### Jetson Nano で Star CUPS ドライバを有効化する
+
+Jetson Nano (Ubuntu 18.04 / Python 3.6) では、事前ビルド済みの `rastertostar` が
+`GLIBC_2.34` を要求して動かない場合があります。  
+その場合は、Jetson 上で Star ドライバをソースからビルドしてください。
+
+```bash
+cd ~/project/null2myakumyaku/defaultprogram/Star_CUPS_Driver-3.17.0_linux/SourceCode
+tar -xzf Star_CUPS_Driver-src-3.17.0.tar.gz
+cd Star_CUPS_Driver
+
+make clean
+make
+sudo make install
+
+sudo chown root:root /usr/lib/cups/filter/rastertostar /usr/lib/cups/filter/rastertostarlm /usr/lib/cups/filter/rastertostarm
+sudo chmod 755 /usr/lib/cups/filter/rastertostar /usr/lib/cups/filter/rastertostarlm /usr/lib/cups/filter/rastertostarm
+sudo systemctl restart cups
+
+sudo lpadmin -x star || true
+sudo lpadmin -p star -E -v 'usb://Star/TSP143%20(STR_T-001)' -m 'star/tsp143.ppd'
+sudo lpoptions -d star
+
+lp -d star /usr/share/cups/data/testprint
+```
+
+`GLIBC_2.34 not found` が出るときは、上の再ビルドを実施してください。
+
 ## Dashboard
 
 Flask ダッシュボードを使うと、Jetson と同じネットワーク上の別端末ブラウザから特徴量を確認できます。
@@ -87,6 +133,8 @@ export AI_FALLBACK_ENABLED=1
 `.env` をプロジェクト直下に置けば、`python3 -m jetson.main` 起動時に自動読込されます。
 （シェルで `export` 済みの値があれば、そちらが優先されます）
 
+初期値は [`./.env.example`](.env.example) をベースにすると早いです。
+
 ```text
 OPENAI_API_KEY=sk-...
 AI_MODE=hybrid
@@ -108,11 +156,19 @@ python3 -m jetson.main
 状態推定は `LOCAL_MODEL_BACKEND` で切替できます。
 
 - `prototype`（デフォルト）: 現在の埋め込みプロトタイプ分類
+- `centroid`: `training/` から学習した軽量ローカル分類器（依存が少ない）
 - `onnx`: ローカルONNXモデルで分類（失敗時は prototype に自動フォールバック）
 
 ```bash
 export LOCAL_MODEL_BACKEND=prototype
 export LOCAL_MODEL_CONFIDENCE_THRESHOLD=0.64
+```
+
+Centroid モデルを使う場合:
+
+```bash
+export LOCAL_MODEL_BACKEND=centroid
+export LOCAL_MODEL_PATH=/home/jetson/project/null2myakumyaku/models/local_centroid_model.json
 ```
 
 ONNXを使う場合:
@@ -142,6 +198,24 @@ python3 tools/build_local_model_dataset.py \
 
 `labels_template.csv` の `manual_label` を埋めて、次の学習ステップへ使います。
 
+Centroid 学習（依存少なめ）:
+
+```bash
+python3 tools/train_centroid_model.py \
+  --dataset-jsonl training/session_dataset.jsonl \
+  --labels-csv training/labels_template.csv \
+  --output-model models/local_centroid_model.json \
+  --use-auto-label 1
+```
+
+学習後に推論へ反映:
+
+```bash
+export LOCAL_MODEL_BACKEND=centroid
+export LOCAL_MODEL_PATH=/home/jetson/project/null2myakumyaku/models/local_centroid_model.json
+python3 -m jetson.main
+```
+
 ## Session Control (Start / Stop)
 
 M5Stack の `event=start/stop` を使って、Jetson 側でセッション単位に集約します。
@@ -164,6 +238,8 @@ export SESSION_ARCHIVE_PRETTY=0
 
 `SESSION_REQUIRE_START_EVENT=0` にすると、常時セッション（自動開始）モードになります。
 セッション完了時は `SESSION_ARCHIVE_DIR` に JSON ログが保存されます。
+
+通常運用は `SESSION_REQUIRE_START_EVENT=1` を推奨です（M5Stack の start/stop でのみ印刷）。
 
 ## IMU (M5Stack -> Jetson)
 
