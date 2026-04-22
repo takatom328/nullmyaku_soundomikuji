@@ -124,6 +124,7 @@ class PrinterConfig:
     cups_column_spacing: int = 8
     cups_layout: str = "horizontal"
     cups_text_align: str = "center"
+    cups_logo_path: str = ""
     qr_url: str = "https://www.yahoo.co.jp/"
     shrine_name: str = "ぬるみゃく神社"
 
@@ -242,6 +243,7 @@ class AppConfig:
                 ),
                 cups_layout=os.getenv("PRINTER_CUPS_LAYOUT", "horizontal"),
                 cups_text_align=os.getenv("PRINTER_CUPS_TEXT_ALIGN", "center"),
+                cups_logo_path=os.getenv("PRINTER_CUPS_LOGO_PATH", ""),
                 qr_url=os.getenv("PRINTER_QR_URL", "https://www.yahoo.co.jp/"),
                 shrine_name=os.getenv("PRINTER_SHRINE_NAME", "ぬるみゃく神社"),
             ),

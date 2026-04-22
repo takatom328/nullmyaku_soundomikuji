@@ -55,6 +55,8 @@ export PRINTER_CUPS_WIDTH_PX=576
 export PRINTER_CUPS_HEIGHT_PX=0      # 0 で内容に応じて可変長
 export PRINTER_CUPS_FONT_SIZE=30
 export PRINTER_CUPS_LINE_SPACING=4
+export PRINTER_CUPS_FONT_PATH=/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc
+export PRINTER_CUPS_LOGO_PATH=~/project/null2myakumyaku/docs/expo_png_file
 export PRINTER_QR_URL=https://www.yahoo.co.jp/
 export PRINTER_SHRINE_NAME=ぬるみゃく神社
 ```
@@ -63,10 +65,77 @@ export PRINTER_SHRINE_NAME=ぬるみゃく神社
 `PRINTER_CUPS_HEIGHT_PX=0` で完全可変長になります。固定値を入れる場合はその値が最小高さです。左寄りが気になる場合は `PRINTER_CUPS_TEXT_ALIGN=center` を使ってください。
 さらに CUPS 送信時に画像サイズから `Custom.<width>x<height>mm` を毎回指定するため、内容が増えても同じ紙長に押し込まれにくくなります。
 
-`image` モードを使う場合は Pillow（QRを使うなら qrcode も）を入れてください。
+日本語を含むおみくじを Jetson から直接印刷する場合は、`text` モードではなく `image` モードを使い、日本語フォントを明示してください。
 
 ```bash
+export PRINTER_TRANSPORT=cups
+export PRINTER_CUPS_MODE=image
+export PRINTER_CUPS_FONT_PATH=/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc
+export PRINTER_CUPS_LOGO_PATH=~/project/null2myakumyaku/docs/expo_png_file
+```
+
+Jetson 環境で上のパスが無い場合でも、`fc-match` が入っていれば `Noto Sans CJK JP` などの日本語フォントを自動探索します。実パスを確認したいときは:
+
+```bash
+fc-match -f "%{file}\n" "Noto Sans CJK JP"
+```
+
+`image` モードを使う場合は `.venv` に Pillow と qrcode を入れてください。
+
+```bash
+source .venv/bin/activate
 python3 -m pip install "Pillow<10" "qrcode<8"
+```
+
+Jetson 実機で日本語印刷まで含めて起動する最小例:
+
+```bash
+cd ~/project/null2myakumyaku
+source .venv/bin/activate
+python3 -m pip install -r requirements.txt
+export AUDIO_BACKEND=arecord
+unset AUDIO_INPUT_DEVICE
+export PRINTER_TRANSPORT=cups
+export PRINTER_CUPS_PRINTER=star
+export PRINTER_CUPS_MODE=image
+export PRINTER_CUPS_FONT_PATH="$(fc-match -f '%{file}\n' 'Noto Sans CJK JP' | head -n1)"
+export PRINTER_CUPS_LOGO_PATH=~/project/null2myakumyaku/docs/expo_png_file
+export WEB_DASHBOARD_ENABLED=1
+export WEB_DASHBOARD_HOST=0.0.0.0
+export WEB_DASHBOARD_PORT=5000
+python3 -m jetson.main
+```
+
+この状態で英字だけ出て日本語が出ない場合は、まず `.venv` に Pillow が入っているか確認してください。
+ロゴ画像ではなく鳥居が出る場合は、`PRINTER_CUPS_LOGO_PATH` の解決失敗か、PNG 読み込み失敗でフォールバックしています。最新の `printer.py` では次のような警告がログに出ます。
+
+```text
+PRINTER_CUPS_LOGO_PATH could not be resolved: ...
+PRINTER_CUPS_LOGO_PATH points to a directory with no PNG files: ...
+Failed to render logo image ...; falling back to torii: ...
+```
+
+Jetson Nano の `Pillow 8.x` でも動くように互換対応済みですが、ロゴ単体確認をしたい場合は次で PNG 生成を試せます。
+
+```bash
+export PRINTER_CUPS_FONT_PATH="$(fc-match -f '%{file}\n' 'Noto Sans CJK JP' | head -n1)"
+python3 - <<'PY'
+import os
+from jetson.printer.printer import _render_text_to_image_path
+p = _render_text_to_image_path(
+    text="[[TORII]]\n\nロゴ確認\nHELLO",
+    font_path=os.environ["PRINTER_CUPS_FONT_PATH"],
+    font_size=30,
+    width_px=576,
+    height_px=0,
+    line_spacing=4,
+    column_spacing=8,
+    layout="horizontal",
+    text_align="center",
+    logo_path="~/project/null2myakumyaku/docs/expo_png_file",
+)
+print(p)
+PY
 ```
 
 ### Jetson Nano で Star CUPS ドライバを有効化する

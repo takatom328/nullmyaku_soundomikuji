@@ -4,9 +4,11 @@ import logging
 import os
 from pathlib import Path
 import random
+import re
 import shutil
 import subprocess
 import tempfile
+import unicodedata
 from urllib import error, request
 from uuid import uuid4
 
@@ -18,6 +20,10 @@ DEFAULT_JA_FONTS = [
     "/usr/share/fonts/opentype/noto/NotoSerifCJK-Regular.ttc",
     "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
     "/usr/share/fonts/truetype/droid/DroidSansFallbackFull.ttf",
+    "/usr/share/fonts/opentype/noto/NotoSansCJKJP-Regular.otf",
+    "/usr/share/fonts/opentype/noto/NotoSerifCJKJP-Regular.otf",
+    "/usr/share/fonts/truetype/noto/NotoSansJP-Regular.ttf",
+    "/usr/share/fonts/truetype/noto/NotoSerifJP-Regular.ttf",
 ]
 TORII_TOKEN = "[[TORII]]"
 TITLE_TOKEN_PREFIX = "[[TITLE:"
@@ -116,6 +122,31 @@ ADVICE = [
     "疲れを感じたら早めの休息を。",
 ]
 
+EXPO_TRIVIA_FALLBACK = [
+    "総来場者数は約2,902万人！",
+    "1日平均来場者数は15.8万人。",
+    "海外来場者は約200万人（推計6.9%）。",
+    "公式参加は158か国・地域と7国際機関。",
+    "ボランティア活動人数は10,851人、のべ70,304人日。",
+    "忘れ物の総数は約14.3万件。",
+    "迷子リストバンドは約25万枚配布された。",
+    "総合的満足度は74.9%、最終日は92.8%！",
+    "アオと夜の虹のパレードは285回開催、のべ約152万人が鑑賞。",
+    "EXPOアリーナで165回のイベントが行われ、約99万人が来場。",
+    "SNSへの万博関連投稿数は約860万投稿。",
+    "バーチャル万博の総アクセスは約3,183万回。",
+    "アプリのダウンロード数は115万DL超。",
+    "廃棄物排出量は4,601.3トン、1人あたりわずか158.57g。",
+    "車いす貸し出しは通期で8.4万回。",
+    "ベビーカー貸し出しは約9.1万回。",
+    "医療救護対応者数は24,366人、AED蘇生4名。",
+    "テーマウィークのプログラムは全429本、登壇者2,653人。",
+    "TEAM EXPO 2025の共創チャレンジ登録数は2,492件。",
+    "協賛者は924者、寄付者は約2,300者が支えた。",
+]
+_EXPO_TRIVIA_CACHE = None
+_LAST_TRIVIA = None
+
 
 def _build_cups_cmd(printer_name, orientation):
     orientation_opt = []
@@ -139,6 +170,30 @@ def _choose_font_path(font_path):
     for path in DEFAULT_JA_FONTS:
         if os.path.exists(path):
             return path
+    fc_match = shutil.which("fc-match")
+    if fc_match:
+        patterns = [
+            "Noto Sans CJK JP",
+            "Noto Serif CJK JP",
+            "Noto Sans JP",
+            "Noto Serif JP",
+            "IPAGothic",
+            "VL Gothic",
+        ]
+        for pattern in patterns:
+            try:
+                proc = subprocess.run(
+                    [fc_match, "-f", "%{file}\n", pattern],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    universal_newlines=True,
+                )
+            except Exception:
+                continue
+            if proc.returncode == 0:
+                resolved = proc.stdout.strip()
+                if resolved and os.path.exists(resolved):
+                    return resolved
     return None
 
 
@@ -159,6 +214,142 @@ def _pick_fortune():
     names = [name for name, _ in FORTUNE_WEIGHTS]
     weights = [weight for _, weight in FORTUNE_WEIGHTS]
     return random.choices(names, weights=weights, k=1)[0]
+
+
+def _resolve_logo_path(logo_path):
+    if not logo_path:
+        return None
+    p = Path(logo_path).expanduser()
+    if p.is_file():
+        return str(p)
+    if p.is_dir():
+        candidates = sorted(p.glob("*.png")) + sorted(p.glob("*.PNG"))
+        if candidates:
+            return str(random.choice(candidates))
+        logging.getLogger(__name__).warning(
+            "PRINTER_CUPS_LOGO_PATH points to a directory with no PNG files: %s",
+            p,
+        )
+        return None
+    logging.getLogger(__name__).warning(
+        "PRINTER_CUPS_LOGO_PATH could not be resolved: %s",
+        p,
+    )
+    return None
+
+
+def _pil_lanczos(Image):
+    resampling = getattr(Image, "Resampling", None)
+    if resampling is not None:
+        return resampling.LANCZOS
+    return getattr(Image, "LANCZOS", Image.BICUBIC)
+
+
+def _pil_floyd_steinberg(Image):
+    dither = getattr(Image, "Dither", None)
+    if dither is not None:
+        return dither.FLOYDSTEINBERG
+    return getattr(Image, "FLOYDSTEINBERG", Image.NONE)
+
+
+def _decode_response_text(response, body):
+    charsets = []
+
+    header_charset = None
+    try:
+        header_charset = response.headers.get_content_charset()
+    except Exception:
+        header_charset = None
+    if header_charset:
+        charsets.append(header_charset)
+
+    ascii_head = body[:4096].decode("ascii", errors="ignore")
+    meta_match = re.search(
+        r"<meta[^>]+charset=['\"]?\s*([a-zA-Z0-9_.-]+)",
+        ascii_head,
+        flags=re.IGNORECASE,
+    )
+    if meta_match:
+        charsets.append(meta_match.group(1))
+
+    charsets.extend(["utf-8", "cp932", "shift_jis", "euc-jp"])
+
+    tried = set()
+    for charset in charsets:
+        normalized = (charset or "").strip().lower()
+        if not normalized or normalized in tried:
+            continue
+        tried.add(normalized)
+        try:
+            return body.decode(normalized)
+        except (LookupError, UnicodeDecodeError):
+            continue
+
+    return body.decode("utf-8", errors="replace")
+
+
+def _normalize_printable_text(text):
+    normalized = unicodedata.normalize("NFKC", text or "")
+    normalized = normalized.replace("\r\n", "\n").replace("\r", "\n")
+    normalized = re.sub(r"[ \t]+", " ", normalized)
+    return normalized.strip()
+
+
+def _load_expo_trivia():
+    global _EXPO_TRIVIA_CACHE
+    if _EXPO_TRIVIA_CACHE is not None:
+        return _EXPO_TRIVIA_CACHE
+
+    trivia = list(EXPO_TRIVIA_FALLBACK)
+    trivia_source = os.getenv("PRINTER_EXPO_TRIVIA_SOURCE", "fallback").strip().lower()
+    if trivia_source != "live":
+        _EXPO_TRIVIA_CACHE = trivia
+        return _EXPO_TRIVIA_CACHE
+
+    try:
+        req = request.Request(
+            "https://www.expo2025.or.jp/expo_data/",
+            headers={"User-Agent": "Mozilla/5.0"},
+        )
+        with request.urlopen(req, timeout=8) as resp:
+            body = resp.read()
+            html = _decode_response_text(resp, body)
+        # タグ除去 → 数字を含む短い行を抽出
+        text = re.sub(r"<[^>]+>", " ", html)
+        for line in text.splitlines():
+            line = _normalize_printable_text(line)
+            if len(line) < 6 or len(line) > 60:
+                continue
+            if re.search(r"[0-9０-９]", line) and re.search(r"[ぁ-んァ-ヶ一-龥]", line):
+                trivia.append(line)
+        # 重複除去
+        seen = set()
+        deduped = []
+        for item in trivia:
+            if item not in seen:
+                seen.add(item)
+                deduped.append(item)
+        trivia = deduped[:60]
+    except Exception:
+        trivia = list(EXPO_TRIVIA_FALLBACK)
+
+    if not trivia:
+        trivia = list(EXPO_TRIVIA_FALLBACK)
+    _EXPO_TRIVIA_CACHE = trivia
+    return trivia
+
+
+def _pick_expo_trivia():
+    global _LAST_TRIVIA
+    trivia = _load_expo_trivia()
+    candidates = trivia
+    if _LAST_TRIVIA and len(trivia) > 1:
+        filtered = [t for t in trivia if t != _LAST_TRIVIA]
+        if filtered:
+            candidates = filtered
+    picked = random.choice(candidates)
+    _LAST_TRIVIA = picked
+    return picked
 
 
 def _load_expo_motifs():
@@ -302,6 +493,7 @@ def _render_text_horizontal_image_path(
     line_spacing,
     height_px,
     text_align,
+    logo_path=None,
 ):
     try:
         from PIL import Image, ImageDraw, ImageFont
@@ -309,9 +501,23 @@ def _render_text_horizontal_image_path(
         return None
 
     resolved_font = _choose_font_path(font_path)
+    _require_renderable_font(text, resolved_font)
     margin = 16
     max_width = width_px - (margin * 2)
     text_align = (text_align or "center").lower()
+    resolved_logo = _resolve_logo_path(logo_path)
+
+    def _measure_logo_height():
+        if not resolved_logo:
+            return None
+        try:
+            with Image.open(resolved_logo) as logo_img:
+                logo_width, logo_height = logo_img.size
+        except Exception:
+            return None
+        if not logo_width or not logo_height:
+            return None
+        return max(96, int(max_width * (logo_height / float(logo_width))))
 
     def _load_title_font(title_text, base_font_size, probe_draw):
         if not resolved_font:
@@ -347,6 +553,7 @@ def _render_text_horizontal_image_path(
         ascent, descent = base_font.getmetrics()
         line_height = ascent + descent + line_spacing
         torii_height = max(96, line_height * 4)
+        logo_height = _measure_logo_height()
         qr_size = min(220, max(140, int(width_px * 0.34)))
 
         total_height = margin * 2
@@ -355,7 +562,7 @@ def _render_text_horizontal_image_path(
             if stripped in (ALIGN_LEFT_TOKEN, ALIGN_CENTER_TOKEN):
                 continue
             if stripped == TORII_TOKEN:
-                total_height += torii_height
+                total_height += logo_height or torii_height
             elif stripped.startswith(TITLE_TOKEN_PREFIX) and stripped.endswith(TITLE_TOKEN_SUFFIX):
                 title_text = stripped[len(TITLE_TOKEN_PREFIX) : -len(TITLE_TOKEN_SUFFIX)]
                 title_font = _load_title_font(title_text, base_font_size, probe_draw)
@@ -381,6 +588,7 @@ def _render_text_horizontal_image_path(
             "lines": lines,
             "line_height": line_height,
             "torii_height": torii_height,
+            "logo_height": logo_height,
             "qr_size": qr_size,
             "total_height": total_height,
             "font_size": base_font_size,
@@ -397,12 +605,36 @@ def _render_text_horizontal_image_path(
     lines = chosen["lines"]
     line_height = chosen["line_height"]
     torii_height = chosen["torii_height"]
+    logo_height = chosen["logo_height"]
     qr_size = chosen["qr_size"]
 
     image = Image.new("L", (width_px, render_height), color=255)
     draw = ImageDraw.Draw(image)
 
     def _draw_torii(y):
+        if resolved_logo:
+            try:
+                logo_img = Image.open(resolved_logo).convert("L")
+                logo_img = logo_img.convert(
+                    "1", dither=_pil_floyd_steinberg(Image)
+                ).convert("L")
+                aspect = logo_img.height / logo_img.width
+                new_w = max_width
+                new_h = int(new_w * aspect)
+                if logo_height:
+                    new_h = logo_height
+                    new_w = max_width
+                logo_img = logo_img.resize((new_w, new_h), _pil_lanczos(Image))
+                x = int((width_px - new_w) / 2)
+                image.paste(logo_img, (x, y))
+                return y + new_h
+            except Exception as exc:
+                logging.getLogger(__name__).warning(
+                    "Failed to render logo image %s; falling back to torii: %s",
+                    resolved_logo,
+                    exc,
+                )
+
         left = margin + int(max_width * 0.16)
         right = margin + int(max_width * 0.84)
         top1 = y + 6
@@ -502,6 +734,7 @@ def _render_text_vertical_image_path(
         return None
 
     resolved_font = _choose_font_path(font_path)
+    _require_renderable_font(text, resolved_font)
     if resolved_font:
         font = ImageFont.truetype(resolved_font, font_size)
     else:
@@ -558,6 +791,7 @@ def _render_text_to_image_path(
     column_spacing,
     layout,
     text_align,
+    logo_path=None,
 ):
     if (layout or "horizontal").lower() == "vertical":
         return _render_text_vertical_image_path(
@@ -577,6 +811,23 @@ def _render_text_to_image_path(
         line_spacing=line_spacing,
         height_px=height_px,
         text_align=text_align,
+        logo_path=logo_path,
+    )
+
+
+def _needs_image_mode(text):
+    for ch in text or "":
+        if ord(ch) > 127:
+            return True
+    return False
+
+
+def _require_renderable_font(text, resolved_font):
+    if resolved_font or not _needs_image_mode(text):
+        return
+    raise RuntimeError(
+        "Japanese text is present but no Japanese-capable font was found. "
+        "Set PRINTER_CUPS_FONT_PATH to a Noto/IPA/VL Gothic font on Jetson."
     )
 
 
@@ -688,6 +939,7 @@ class Printer:
         cuisine = expo.get("cuisine", "")
         restaurant = expo.get("restaurant", "")
         advice_line = expo.get("advice", random.choice(ADVICE))
+        trivia_line = _pick_expo_trivia()
         analysis_lines = _build_analysis_lines(
             audio_features=audio_features,
             imu_features=imu_features,
@@ -722,6 +974,9 @@ class Printer:
             "おすすめ料理: {0}".format(cuisine or "情報準備中"),
             "おすすめレストラン: {0}".format(restaurant or "情報準備中"),
             "今日の一言: {0}".format(advice_line),
+            "",
+            "【2025大阪・関西万博まめちしき】",
+            trivia_line,
             "",
             "【解析サマリー(セッション平均)】",
         ]
@@ -817,6 +1072,12 @@ class Printer:
         file_path = None
         cmd_with_options = list(cmd)
 
+        if mode == "text" and _needs_image_mode(ticket_text):
+            self._logger.info(
+                "Detected non-ASCII ticket text in CUPS text mode; switching to image mode to avoid mojibake."
+            )
+            mode = "image"
+
         if mode == "image":
             file_path = _render_text_to_image_path(
                 text=ticket_text,
@@ -828,6 +1089,7 @@ class Printer:
                 column_spacing=self.config.cups_column_spacing,
                 layout=self.config.cups_layout,
                 text_align=self.config.cups_text_align,
+                logo_path=self.config.cups_logo_path,
             )
             if file_path is None:
                 self._logger.warning(

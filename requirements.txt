@@ -1,2 +1,4 @@
 Flask>=2.0,<2.1
 dataclasses>=0.8; python_version < "3.7"
+Pillow>=8,<10
+qrcode>=7,<8
